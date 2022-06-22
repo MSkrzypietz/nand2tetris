@@ -8,9 +8,10 @@ import (
 )
 
 type Parser struct {
-	filePath      string
-	lines         []string
-	currlineIndex int
+	filePath             string
+	lines                []string
+	currLineIndex        int
+	currInstructionIndex int
 }
 
 type InstructionType int
@@ -25,7 +26,7 @@ func New(filePath string) *Parser {
 	return &Parser{
 		filePath:      filePath,
 		lines:         readLines(filePath),
-		currlineIndex: -1,
+		currLineIndex: -1,
 	}
 }
 
@@ -44,12 +45,13 @@ func readLines(filePath string) []string {
 	return lines
 }
 
-func (p *Parser) getCurrentLine() string {
-	return strings.TrimSpace(p.lines[p.currlineIndex])
+func (p *Parser) GetCurrentLine() string {
+	line, _, _ := strings.Cut(p.lines[p.currLineIndex], "//")
+	return strings.TrimSpace(line)
 }
 
 func (p *Parser) HasMoreLines() bool {
-	return p.currlineIndex < len(p.lines)-1
+	return p.currLineIndex < len(p.lines)-1
 }
 
 func (p *Parser) Advance() {
@@ -57,15 +59,14 @@ func (p *Parser) Advance() {
 		return
 	}
 
-	p.currlineIndex++
-	line := p.getCurrentLine()
-	if strings.HasPrefix(line, "//") || line == "" {
+	p.currLineIndex++
+	if p.GetCurrentLine() == "" {
 		p.Advance()
 	}
 }
 
 func (p *Parser) InstructionType() InstructionType {
-	line := p.getCurrentLine()
+	line := p.GetCurrentLine()
 
 	if strings.HasPrefix(line, "@") {
 		return AInstruction
@@ -79,7 +80,7 @@ func (p *Parser) InstructionType() InstructionType {
 }
 
 func (p *Parser) Symbol() string {
-	line := p.getCurrentLine()
+	line := p.GetCurrentLine()
 
 	if p.InstructionType() == AInstruction {
 		return line[1:]
@@ -97,8 +98,11 @@ func (p *Parser) Dest() string {
 		return ""
 	}
 
-	line := p.getCurrentLine()
-	dest, _, _ := strings.Cut(line, "=")
+	line := p.GetCurrentLine()
+	dest, _, found := strings.Cut(line, "=")
+	if !found {
+		return ""
+	}
 	return dest
 }
 
@@ -107,9 +111,13 @@ func (p *Parser) Comp() string {
 		return ""
 	}
 
-	line := p.getCurrentLine()
-	_, compAndJump, _ := strings.Cut(line, "=")
-	comp, _, _ := strings.Cut(compAndJump, ";")
+	line := p.GetCurrentLine()
+	_, compAndJump, found := strings.Cut(line, "=")
+	if found {
+		comp, _, _ := strings.Cut(compAndJump, ";")
+		return comp
+	}
+	comp, _, _ := strings.Cut(line, ";")
 	return comp
 }
 
@@ -118,7 +126,7 @@ func (p *Parser) Jump() string {
 		return ""
 	}
 
-	line := p.getCurrentLine()
+	line := p.GetCurrentLine()
 	_, jump, _ := strings.Cut(line, ";")
 	return jump
 }
