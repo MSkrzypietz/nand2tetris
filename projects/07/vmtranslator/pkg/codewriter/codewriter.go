@@ -10,7 +10,8 @@ import (
 )
 
 type CodeWriter struct {
-	file *os.File
+	file             *os.File
+	uniqueLabelIndex int
 }
 
 func New(filePath string) *CodeWriter {
@@ -22,7 +23,8 @@ func New(filePath string) *CodeWriter {
 	}
 
 	return &CodeWriter{
-		file: f,
+		file:             f,
+		uniqueLabelIndex: 0,
 	}
 }
 
@@ -39,19 +41,79 @@ func (cw *CodeWriter) WriteEnd() {
 	)
 }
 
-// "sub" "neg" "eq" "gt" "lt" "and" "or" "not"
 func (cw *CodeWriter) WriteArithmetic(command string) {
 	ab := newAsmBuilder()
 
-	if command == "add" {
+	switch command {
+	case "add":
 		ab.Add(popStack()...)
 		ab.Add("D=M")
 		ab.Add(popStack()...)
 		ab.Add("D=D+M")
 		ab.Add(pushDRegToStack()...)
+	case "sub":
+		ab.Add(popStack()...)
+		ab.Add("D=M")
+		ab.Add(popStack()...)
+		ab.Add("D=M-D")
+		ab.Add(pushDRegToStack()...)
+	case "neg":
+		ab.Add(popStack()...)
+		ab.Add("D=-M")
+		ab.Add(pushDRegToStack()...)
+	case "eq":
+		ab.Add(cw.compare("JEQ")...)
+	case "gt":
+		ab.Add(cw.compare("JLT")...)
+	case "lt":
+		ab.Add(cw.compare("JGT")...)
+	case "and":
+		ab.Add(popStack()...)
+		ab.Add("D=M")
+		ab.Add(popStack()...)
+		ab.Add("D=D&M")
+		ab.Add(pushDRegToStack()...)
+	case "or":
+		ab.Add(popStack()...)
+		ab.Add("D=M")
+		ab.Add(popStack()...)
+		ab.Add("D=D|M")
+		ab.Add(pushDRegToStack()...)
+	case "not":
+		ab.Add(popStack()...)
+		ab.Add("D=!M")
+		ab.Add(pushDRegToStack()...)
 	}
 
 	cw.writeToFile(ab.Instructions()...)
+}
+
+func (cw *CodeWriter) compare(jumpInstruction string) []string {
+	index := cw.getNextUniqueLabelIndex()
+	onTrueLabel := "ON_TRUE_" + index
+	endLabel := "END_" + index
+
+	ab := newAsmBuilder()
+	ab.Add(popStack()...)
+	ab.Add("D=M")
+	ab.Add(popStack()...)
+	ab.Add("D=D-M")
+	ab.Add("@" + onTrueLabel)
+	ab.Add("D;" + jumpInstruction)
+	ab.Add("D=0")
+	ab.Add("@" + endLabel)
+	ab.Add("0;JMP")
+	ab.Add("(" + onTrueLabel + ")")
+	ab.Add("D=-1")
+	ab.Add("(" + endLabel + ")")
+	ab.Add(pushDRegToStack()...)
+	return ab.Instructions()
+}
+
+func (cw *CodeWriter) getNextUniqueLabelIndex() string {
+	index := cw.uniqueLabelIndex
+	cw.uniqueLabelIndex++
+	return strconv.Itoa(index)
 }
 
 func (cw *CodeWriter) WritePushPop(cmdType parser.CmdType, segment string, index int) {
