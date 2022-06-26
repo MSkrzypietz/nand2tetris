@@ -118,22 +118,62 @@ func (cw *CodeWriter) getNextUniqueLabelIndex() string {
 
 func (cw *CodeWriter) WritePushPop(cmdType parser.CmdType, segment string, index int) {
 	ab := newAsmBuilder()
+	segmentAddress := getSegmentAddress(segment, index)
 
 	if cmdType == parser.CmdPush {
+		ab.Add("@" + segmentAddress)
 		if segment == "constant" {
-			ab.Add(
-				"@"+strconv.Itoa(index),
-				"D=A",
-			)
-			ab.Add(pushDRegToStack()...)
+			ab.Add("D=A")
+		} else if segment == "temp" {
+			ab.Add("D=M")
+		} else {
+			ab.Add("D=M")
+			ab.Add("@" + strconv.Itoa(index))
+			ab.Add("A=D+A")
+			ab.Add("D=M")
+		}
+		ab.Add(pushDRegToStack()...)
+	} else if cmdType == parser.CmdPop {
+		if segment == "temp" {
+			ab.Add(popStack()...)
+			ab.Add("D=M")
+			ab.Add("@" + segmentAddress)
+			ab.Add("M=D")
+		} else {
+			ab.Add("@" + segmentAddress)
+			ab.Add("D=M")
+			ab.Add("@" + strconv.Itoa(index))
+			ab.Add("D=D+A")
+			ab.Add("@R13")
+			ab.Add("M=D")
+			ab.Add(popStack()...)
+			ab.Add("D=M")
+			ab.Add("@R13")
+			ab.Add("A=M")
+			ab.Add("M=D")
 		}
 	}
 
-	if cmdType == parser.CmdPop {
-
-	}
-
 	cw.writeToFile(ab.Instructions()...)
+}
+
+func getSegmentAddress(segment string, index int) string {
+	switch segment {
+	case "constant":
+		return strconv.Itoa(index)
+	case "local":
+		return "LCL"
+	case "argument":
+		return "ARG"
+	case "this":
+		return "THIS"
+	case "that":
+		return "THAT"
+	case "temp":
+		return "R" + strconv.Itoa(5+index)
+	default:
+		return ""
+	}
 }
 
 func popStack() []string {
