@@ -66,9 +66,9 @@ func (cw *CodeWriter) WriteArithmetic(command string) {
 	case "eq":
 		ab.Add(cw.compare("JEQ")...)
 	case "gt":
-		ab.Add(cw.compare("JLT")...)
-	case "lt":
 		ab.Add(cw.compare("JGT")...)
+	case "lt":
+		ab.Add(cw.compare("JLT")...)
 	case "and":
 		ab.Add(popStack()...)
 		ab.Add("D=M")
@@ -99,7 +99,7 @@ func (cw *CodeWriter) compare(jumpInstruction string) []string {
 	ab.Add(popStack()...)
 	ab.Add("D=M")
 	ab.Add(popStack()...)
-	ab.Add("D=D-M")
+	ab.Add("D=M-D")
 	ab.Add("@" + onTrueLabel)
 	ab.Add("D;" + jumpInstruction)
 	ab.Add("D=0")
