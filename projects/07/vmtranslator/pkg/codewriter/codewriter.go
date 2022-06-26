@@ -11,19 +11,21 @@ import (
 
 type CodeWriter struct {
 	file             *os.File
+	fileName         string
 	uniqueLabelIndex int
 }
 
 func New(filePath string) *CodeWriter {
 	dir := filepath.Dir(filePath)
-	fileParts := strings.Split(filepath.Base(filePath), ".")
-	f, err := os.Create(filepath.Join(dir, fileParts[0]+".asm"))
+	fileName := strings.Split(filepath.Base(filePath), ".")[0]
+	f, err := os.Create(filepath.Join(dir, fileName+".asm"))
 	if err != nil {
 		log.Fatal(err)
 	}
 
 	return &CodeWriter{
 		file:             f,
+		fileName:         fileName,
 		uniqueLabelIndex: 0,
 	}
 }
@@ -118,7 +120,7 @@ func (cw *CodeWriter) getNextUniqueLabelIndex() string {
 
 func (cw *CodeWriter) WritePushPop(cmdType parser.CmdType, segment string, index int) {
 	ab := newAsmBuilder()
-	segmentAddress := getSegmentAddress(segment, index)
+	segmentAddress := cw.getSegmentAddress(segment, index)
 
 	if cmdType == parser.CmdPush {
 		ab.Add("@" + segmentAddress)
@@ -157,7 +159,7 @@ func (cw *CodeWriter) WritePushPop(cmdType parser.CmdType, segment string, index
 	cw.writeToFile(ab.Instructions()...)
 }
 
-func getSegmentAddress(segment string, index int) string {
+func (cw *CodeWriter) getSegmentAddress(segment string, index int) string {
 	switch segment {
 	case "constant":
 		return strconv.Itoa(index)
@@ -175,6 +177,8 @@ func getSegmentAddress(segment string, index int) string {
 		} else {
 			return "THAT"
 		}
+	case "static":
+		return cw.fileName + "." + strconv.Itoa(index)
 	case "temp":
 		return "R" + strconv.Itoa(5+index)
 	default:
