@@ -124,7 +124,7 @@ func (cw *CodeWriter) WritePushPop(cmdType parser.CmdType, segment string, index
 		ab.Add("@" + segmentAddress)
 		if segment == "constant" {
 			ab.Add("D=A")
-		} else if segment == "temp" {
+		} else if segment == "temp" || segment == "pointer" {
 			ab.Add("D=M")
 		} else {
 			ab.Add("D=M")
@@ -134,7 +134,7 @@ func (cw *CodeWriter) WritePushPop(cmdType parser.CmdType, segment string, index
 		}
 		ab.Add(pushDRegToStack()...)
 	} else if cmdType == parser.CmdPop {
-		if segment == "temp" {
+		if segment == "temp" || segment == "pointer" {
 			ab.Add(popStack()...)
 			ab.Add("D=M")
 			ab.Add("@" + segmentAddress)
@@ -169,6 +169,12 @@ func getSegmentAddress(segment string, index int) string {
 		return "THIS"
 	case "that":
 		return "THAT"
+	case "pointer":
+		if index == 0 {
+			return "THIS"
+		} else {
+			return "THAT"
+		}
 	case "temp":
 		return "R" + strconv.Itoa(5+index)
 	default:
