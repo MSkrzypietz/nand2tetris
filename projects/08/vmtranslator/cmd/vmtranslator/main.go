@@ -21,11 +21,15 @@ func main() {
 
 		if cmdType == parser.CmdArithmetic {
 			cw.WriteArithmetic(p.Arg1())
-		}
-
-		if cmdType == parser.CmdPush || cmdType == parser.CmdPop {
+		} else if cmdType == parser.CmdPush || cmdType == parser.CmdPop {
 			index, _ := strconv.Atoi(p.Arg2())
 			cw.WritePushPop(cmdType, p.Arg1(), index)
+		} else if cmdType == parser.CmdLabel {
+			cw.WriteLabel(p.Arg1())
+		} else if cmdType == parser.CmdIf {
+			cw.WriteIf(p.Arg1())
+		} else if cmdType == parser.CmdGoto {
+			cw.WriteGoto(p.Arg1())
 		}
 	}
 

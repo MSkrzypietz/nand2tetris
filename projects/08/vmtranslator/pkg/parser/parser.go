@@ -89,6 +89,12 @@ func (p *Parser) CommandType() CmdType {
 		return CmdPush
 	case "pop":
 		return CmdPop
+	case "label":
+		return CmdLabel
+	case "goto":
+		return CmdGoto
+	case "if-goto":
+		return CmdIf
 	}
 
 	return CmdLabel

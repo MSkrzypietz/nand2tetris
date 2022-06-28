@@ -186,6 +186,30 @@ func (cw *CodeWriter) getSegmentAddress(segment string, index int) string {
 	}
 }
 
+func (cw *CodeWriter) WriteLabel(label string) {
+	cw.writeToFile("(" + label + ")")
+}
+
+func (cw *CodeWriter) WriteIf(label string) {
+	ab := newAsmBuilder()
+
+	ab.Add(popStack()...)
+	ab.Add("D=M")
+	ab.Add("@" + label)
+	ab.Add("D;JNE")
+
+	cw.writeToFile(ab.Instructions()...)
+}
+
+func (cw *CodeWriter) WriteGoto(label string) {
+	ab := newAsmBuilder()
+
+	ab.Add("@" + label)
+	ab.Add("0;JMP")
+
+	cw.writeToFile(ab.Instructions()...)
+}
+
 func popStack() []string {
 	return []string{
 		"@SP",
