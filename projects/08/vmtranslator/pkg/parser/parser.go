@@ -95,6 +95,12 @@ func (p *Parser) CommandType() CmdType {
 		return CmdGoto
 	case "if-goto":
 		return CmdIf
+	case "function":
+		return CmdFunction
+	case "call":
+		return CmdCall
+	case "return":
+		return CmdReturn
 	}
 
 	return CmdLabel

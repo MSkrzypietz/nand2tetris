@@ -30,6 +30,14 @@ func main() {
 			cw.WriteIf(p.Arg1())
 		} else if cmdType == parser.CmdGoto {
 			cw.WriteGoto(p.Arg1())
+		} else if cmdType == parser.CmdFunction {
+			nArgs, _ := strconv.Atoi(p.Arg2())
+			cw.WriteFunction(p.Arg1(), nArgs)
+		} else if cmdType == parser.CmdCall {
+			nArgs, _ := strconv.Atoi(p.Arg2())
+			cw.WriteCall(p.Arg1(), nArgs)
+		} else if cmdType == parser.CmdReturn {
+			cw.WriteReturn()
 		}
 	}
 

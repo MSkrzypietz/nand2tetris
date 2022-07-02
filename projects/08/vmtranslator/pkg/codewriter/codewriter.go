@@ -210,6 +210,69 @@ func (cw *CodeWriter) WriteGoto(label string) {
 	cw.writeToFile(ab.Instructions()...)
 }
 
+func (cw *CodeWriter) WriteFunction(functionName string, nVars int) {
+	ab := newAsmBuilder()
+
+	ab.Add("(" + functionName + ")")
+	ab.Add("D=0")
+	for i := 0; i < nVars; i++ {
+		ab.Add(pushDRegToStack()...)
+	}
+
+	cw.writeToFile(ab.Instructions()...)
+}
+
+func (cw *CodeWriter) WriteCall(functionName string, nVars int) {
+	ab := newAsmBuilder()
+
+	cw.writeToFile(ab.Instructions()...)
+}
+
+func (cw *CodeWriter) WriteReturn() {
+	ab := newAsmBuilder()
+
+	ab.Add("@LCL")
+	ab.Add("D=M")
+	ab.Add("@R13")
+	ab.Add("M=D")
+
+	ab.Add(setSegmentAddressToFrameOffset("R14", "R13", 5)...)
+
+	ab.Add(popStack()...)
+	ab.Add("D=M")
+	ab.Add("@ARG")
+	ab.Add("A=M")
+	ab.Add("M=D")
+
+	ab.Add("@ARG")
+	ab.Add("D=M+1")
+	ab.Add("@SP")
+	ab.Add("M=D")
+
+	ab.Add(setSegmentAddressToFrameOffset("THAT", "R13", 1)...)
+	ab.Add(setSegmentAddressToFrameOffset("THIS", "R13", 2)...)
+	ab.Add(setSegmentAddressToFrameOffset("ARG", "R13", 3)...)
+	ab.Add(setSegmentAddressToFrameOffset("LCL", "R13", 4)...)
+
+	// ab.Add("@R14")
+	// ab.Add("D=M")
+	// ab.Add("0;JMP")
+
+	cw.writeToFile(ab.Instructions()...)
+}
+
+func setSegmentAddressToFrameOffset(segment, frame string, offset int) []string {
+	return []string{
+		"@" + frame,
+		"D=M",
+		"@" + strconv.Itoa(offset),
+		"A=D-A",
+		"D=M",
+		"@" + segment,
+		"M=D",
+	}
+}
+
 func popStack() []string {
 	return []string{
 		"@SP",
