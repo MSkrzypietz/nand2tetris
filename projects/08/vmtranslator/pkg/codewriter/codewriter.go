@@ -5,7 +5,6 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
-	"strings"
 	"vmtranslator/pkg/parser"
 )
 
@@ -17,17 +16,21 @@ type CodeWriter struct {
 
 func New(filePath string) *CodeWriter {
 	dir := filepath.Dir(filePath)
-	fileName := strings.Split(filepath.Base(filePath), ".")[0]
-	f, err := os.Create(filepath.Join(dir, fileName+".asm"))
+	dirName := filepath.Base(dir)
+	f, err := os.Create(filepath.Join(dir, dirName+".asm"))
 	if err != nil {
 		log.Fatal(err)
 	}
 
 	return &CodeWriter{
 		file:             f,
-		fileName:         fileName,
+		fileName:         "",
 		uniqueLabelIndex: 0,
 	}
+}
+
+func (cw *CodeWriter) SetFileName(fileName string) {
+	cw.fileName = fileName
 }
 
 func (cw *CodeWriter) Close() {
