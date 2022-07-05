@@ -9,9 +9,10 @@ import (
 )
 
 type CodeWriter struct {
-	file             *os.File
-	fileName         string
-	uniqueLabelIndex int
+	file              *os.File
+	fileName          string
+	uniqueLabelIndex  int
+	functionCallIndex int
 }
 
 func New(filePath string) *CodeWriter {
@@ -22,11 +23,14 @@ func New(filePath string) *CodeWriter {
 		log.Fatal(err)
 	}
 
-	return &CodeWriter{
-		file:             f,
-		fileName:         "",
-		uniqueLabelIndex: 0,
+	cw := &CodeWriter{
+		file:              f,
+		fileName:          "",
+		uniqueLabelIndex:  0,
+		functionCallIndex: 0,
 	}
+	cw.writeBootstrap()
+	return cw
 }
 
 func (cw *CodeWriter) SetFileName(fileName string) {
@@ -36,6 +40,17 @@ func (cw *CodeWriter) SetFileName(fileName string) {
 func (cw *CodeWriter) Close() {
 	cw.file.Sync()
 	cw.file.Close()
+}
+
+func (cw *CodeWriter) writeBootstrap() {
+	ab := newAsmBuilder()
+	ab.Add("@256")
+	ab.Add("D=A")
+	ab.Add("@SP")
+	ab.Add("M=D")
+	cw.writeToFile(ab.Instructions()...)
+
+	cw.WriteCall("Sys.init", 0)
 }
 
 func (cw *CodeWriter) WriteEnd() {
@@ -227,6 +242,35 @@ func (cw *CodeWriter) WriteFunction(functionName string, nVars int) {
 
 func (cw *CodeWriter) WriteCall(functionName string, nVars int) {
 	ab := newAsmBuilder()
+	retLabel := functionName + "$ret." + strconv.Itoa(cw.functionCallIndex)
+	cw.functionCallIndex++
+
+	ab.Add("@" + retLabel)
+	ab.Add("D=A")
+	ab.Add(pushDRegToStack()...)
+	ab.Add(pushAddressToStack("LCL")...)
+	ab.Add(pushAddressToStack("ARG")...)
+	ab.Add(pushAddressToStack("THIS")...)
+	ab.Add(pushAddressToStack("THAT")...)
+
+	ab.Add("@5")
+	ab.Add("D=A")
+	ab.Add("@" + strconv.Itoa(nVars))
+	ab.Add("D=D+A")
+	ab.Add("@SP")
+	ab.Add("D=M-D")
+	ab.Add("@ARG")
+	ab.Add("M=D")
+
+	ab.Add("@SP")
+	ab.Add("D=M")
+	ab.Add("@LCL")
+	ab.Add("M=D")
+
+	ab.Add("@" + functionName)
+	ab.Add("0;JMP")
+
+	ab.Add("(" + retLabel + ")")
 
 	cw.writeToFile(ab.Instructions()...)
 }
@@ -257,9 +301,9 @@ func (cw *CodeWriter) WriteReturn() {
 	ab.Add(setSegmentAddressToFrameOffset("ARG", "R13", 3)...)
 	ab.Add(setSegmentAddressToFrameOffset("LCL", "R13", 4)...)
 
-	// ab.Add("@R14")
-	// ab.Add("D=M")
-	// ab.Add("0;JMP")
+	ab.Add("@R14")
+	ab.Add("A=M")
+	ab.Add("0;JMP")
 
 	cw.writeToFile(ab.Instructions()...)
 }
@@ -282,6 +326,10 @@ func popStack() []string {
 		"M=M-1",
 		"A=M",
 	}
+}
+
+func pushAddressToStack(address string) []string {
+	return append([]string{"@" + address, "D=M"}, pushDRegToStack()...)
 }
 
 func pushDRegToStack() []string {
