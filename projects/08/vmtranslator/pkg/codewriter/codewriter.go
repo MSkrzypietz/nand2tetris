@@ -137,47 +137,60 @@ func (cw *CodeWriter) getNextUniqueLabelIndex() string {
 }
 
 func (cw *CodeWriter) WritePushPop(cmdType parser.CmdType, segment string, index int) {
+	if cmdType == parser.CmdPush {
+		cw.writePush(segment, index)
+	} else if cmdType == parser.CmdPop {
+		cw.writePop(segment, index)
+	}
+}
+
+func (cw *CodeWriter) writePop(segment string, index int) {
 	ab := newAsmBuilder()
 	segmentAddress := cw.getSegmentAddress(segment, index)
 
-	if cmdType == parser.CmdPush {
+	if segment == "temp" || segment == "pointer" {
+		ab.Add(popStack()...)
+		ab.Add("D=M")
 		ab.Add("@" + segmentAddress)
-		if segment == "constant" {
-			ab.Add("D=A")
-		} else if segment == "temp" || segment == "pointer" || segment == "static" {
-			ab.Add("D=M")
-		} else {
-			ab.Add("D=M")
-			ab.Add("@" + strconv.Itoa(index))
-			ab.Add("A=D+A")
-			ab.Add("D=M")
-		}
-		ab.Add(pushDRegToStack()...)
-	} else if cmdType == parser.CmdPop {
-		if segment == "temp" || segment == "pointer" {
-			ab.Add(popStack()...)
-			ab.Add("D=M")
+		ab.Add("M=D")
+	} else {
+		if segment == "static" {
 			ab.Add("@" + segmentAddress)
-			ab.Add("M=D")
+			ab.Add("D=A")
 		} else {
-			if segment == "static" {
-				ab.Add("@" + segmentAddress)
-				ab.Add("D=A")
-			} else {
-				ab.Add("@" + segmentAddress)
-				ab.Add("D=M")
-			}
-			ab.Add("@" + strconv.Itoa(index))
-			ab.Add("D=D+A")
-			ab.Add("@R13")
-			ab.Add("M=D")
-			ab.Add(popStack()...)
+			ab.Add("@" + segmentAddress)
 			ab.Add("D=M")
-			ab.Add("@R13")
-			ab.Add("A=M")
-			ab.Add("M=D")
 		}
+		ab.Add("@" + strconv.Itoa(index))
+		ab.Add("D=D+A")
+		ab.Add("@R13")
+		ab.Add("M=D")
+		ab.Add(popStack()...)
+		ab.Add("D=M")
+		ab.Add("@R13")
+		ab.Add("A=M")
+		ab.Add("M=D")
 	}
+
+	cw.writeToFile(ab.Instructions()...)
+}
+
+func (cw *CodeWriter) writePush(segment string, index int) {
+	ab := newAsmBuilder()
+	segmentAddress := cw.getSegmentAddress(segment, index)
+
+	ab.Add("@" + segmentAddress)
+	if segment == "constant" {
+		ab.Add("D=A")
+	} else if segment == "temp" || segment == "pointer" || segment == "static" {
+		ab.Add("D=M")
+	} else {
+		ab.Add("D=M")
+		ab.Add("@" + strconv.Itoa(index))
+		ab.Add("A=D+A")
+		ab.Add("D=M")
+	}
+	ab.Add(pushDRegToStack()...)
 
 	cw.writeToFile(ab.Instructions()...)
 }
