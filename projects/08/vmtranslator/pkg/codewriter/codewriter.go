@@ -144,7 +144,7 @@ func (cw *CodeWriter) WritePushPop(cmdType parser.CmdType, segment string, index
 		ab.Add("@" + segmentAddress)
 		if segment == "constant" {
 			ab.Add("D=A")
-		} else if segment == "temp" || segment == "pointer" {
+		} else if segment == "temp" || segment == "pointer" || segment == "static" {
 			ab.Add("D=M")
 		} else {
 			ab.Add("D=M")
@@ -160,8 +160,13 @@ func (cw *CodeWriter) WritePushPop(cmdType parser.CmdType, segment string, index
 			ab.Add("@" + segmentAddress)
 			ab.Add("M=D")
 		} else {
-			ab.Add("@" + segmentAddress)
-			ab.Add("D=M")
+			if segment == "static" {
+				ab.Add("@" + segmentAddress)
+				ab.Add("D=A")
+			} else {
+				ab.Add("@" + segmentAddress)
+				ab.Add("D=M")
+			}
 			ab.Add("@" + strconv.Itoa(index))
 			ab.Add("D=D+A")
 			ab.Add("@R13")
