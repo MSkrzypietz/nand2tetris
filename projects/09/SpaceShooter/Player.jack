@@ -1,0 +1,32 @@
+class Player {
+	field int xPos;
+	field int yPos;
+
+	constructor Player new(int startXPos, int startYPos) {
+		let xPos = startXPos;
+		let yPos = startYPos;
+		return this;
+	}
+
+	method void draw() {
+	        do Screen.setColor(true);
+		do Screen.drawRectangle(xPos, yPos, xPos + 10, yPos + 3);
+		return;
+	}
+
+	method void erase() {
+	        do Screen.setColor(false);
+		do Screen.drawRectangle(xPos, yPos, xPos + 10, yPos + 3);
+		return;
+	}
+
+	method void moveLeft() {
+		let xPos = xPos - 1;
+		return;
+	}
+
+	method void moveRight() {
+		let xPos = xPos + 1;
+		return;
+	}
+}

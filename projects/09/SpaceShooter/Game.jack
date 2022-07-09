@@ -1,0 +1,28 @@
+class Game {
+	field Player player;
+
+	constructor Game new() {
+		let player = Player.new(20, 20);
+		return this;
+	}
+
+	method void run() {
+		while (true) {
+			do player.erase();
+			do handlePlayerInput();
+			do player.draw();
+			do Sys.wait(10);
+		}
+		return;
+	}
+
+	method void handlePlayerInput() {
+		var char inputKey;
+		let inputKey = Keyboard.keyPressed();
+
+		if (inputKey = 130) { do player.moveLeft(); } 
+		if (inputKey = 132) { do player.moveRight(); } 
+		
+		return;
+	}
+}
