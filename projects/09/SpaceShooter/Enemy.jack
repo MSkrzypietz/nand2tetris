@@ -1,0 +1,105 @@
+class Enemy {
+	field int memAddress;
+	field boolean isDead;
+
+	constructor Enemy new(int xPos) {
+		let memAddress = 16384 + 640 + xPos;
+		let isDead = false;
+		do draw();
+		return this;
+	}
+
+	method void dispose() {
+		do Memory.deAlloc(this);
+		return;
+	}
+
+	method boolean isDead() { return isDead; }
+
+	method void draw() {
+		do Memory.poke(memAddress+0, 252);
+		do Memory.poke(memAddress+32, 252);
+		do Memory.poke(memAddress+64, 771);
+		do Memory.poke(memAddress+96, 771);
+		do Memory.poke(memAddress+128, 252);
+		do Memory.poke(memAddress+160, 252);
+		do Memory.poke(memAddress+192, 204);
+		do Memory.poke(memAddress+224, 204);
+		do Memory.poke(memAddress+256, 771);
+		do Memory.poke(memAddress+288, 771);
+
+		return;
+	}
+
+	method void erase() {
+		do Memory.poke(memAddress+0, 0);
+		do Memory.poke(memAddress+32, 0);
+		do Memory.poke(memAddress+64, 0);
+		do Memory.poke(memAddress+96, 0);
+		do Memory.poke(memAddress+128, 0);
+		do Memory.poke(memAddress+160, 0);
+		do Memory.poke(memAddress+192, 0);
+		do Memory.poke(memAddress+224, 0);
+		do Memory.poke(memAddress+256, 0);
+		do Memory.poke(memAddress+288, 0);
+
+		let isDead = true;
+		return;
+	}
+
+	method boolean hasCollision() {
+		var int memValue;
+
+		let memValue = Memory.peek(memAddress+0);
+		if (~(memValue = 252)) {
+			return true;
+		}
+		
+		let memValue = Memory.peek(memAddress+32);
+		if (~(memValue = 252)) {
+			return true;
+		}
+
+		let memValue = Memory.peek(memAddress+64);
+		if (~(memValue = 771)) {
+			return true;
+		}
+
+		let memValue = Memory.peek(memAddress+96);
+		if (~(memValue = 771)) {
+			return true;
+		}
+
+		let memValue = Memory.peek(memAddress+128);
+		if (~(memValue = 252)) {
+			return true;
+		}
+
+		let memValue = Memory.peek(memAddress+160);
+		if (~(memValue = 252)) {
+			return true;
+		}
+
+		let memValue = Memory.peek(memAddress+192);
+		if (~(memValue = 204)) {
+			return true;
+		}
+
+		let memValue = Memory.peek(memAddress+224);
+		if (~(memValue = 204)) {
+			return true;
+		}
+
+		let memValue = Memory.peek(memAddress+256);
+		if (~(memValue = 771)) {
+			return true;
+		}
+
+		let memValue = Memory.peek(memAddress+288);
+		if (~(memValue = 771)) {
+			return true;
+		}
+
+		return false;
+	}
+}

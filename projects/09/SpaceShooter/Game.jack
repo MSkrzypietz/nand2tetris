@@ -1,23 +1,43 @@
 class Game {
 	field Player player;
+	field char lastPlayerInput;
+
 	field Array projectiles;
 	field int projectileCount;
 	field int maxProjectileCount;
-	field char lastPlayerInput;
+
+	field Array enemies;
+	field int enemyCount;
 
 	constructor Game new() {
 		let player = Player.new(250, 220);
+		let lastPlayerInput = 0;
+		
 		let maxProjectileCount = 50;
 		let projectiles = Array.new(maxProjectileCount);
 		let projectileCount = 0;
-		let lastPlayerInput = 0;
+
+		let enemyCount = 5;
+		let enemies = Array.new(enemyCount);
+		do placeEnemies();
+
 		return this;
 	}
 
 	method void dispose() {
 		do player.dispose();
 		do projectiles.dispose();
+		do enemies.dispose();
 		do Memory.deAlloc(this);
+		return;
+	}
+
+	method void placeEnemies() {
+		let enemies[0] = Enemy.new(8);
+		let enemies[1] = Enemy.new(12);
+		let enemies[2] = Enemy.new(16);
+		let enemies[3] = Enemy.new(20);
+		let enemies[4] = Enemy.new(24);
 		return;
 	}
 
@@ -25,6 +45,7 @@ class Game {
 		while (true) {
 			do handlePlayerInput();
 			do moveProjectiles();
+			do handleEnemyProjectileCollision();
 			do Sys.wait(5);
 		}
 		return;
@@ -66,6 +87,24 @@ class Game {
 				do projectile.move();
 			} else {
 				do projectile.erase();
+			}
+			let i = i + 1;
+		}
+
+		return;
+	}
+
+	method void handleEnemyProjectileCollision() {
+		var Enemy enemy;
+		var int i;
+		let i = 0;
+
+		while (i < enemyCount) {
+			let enemy = enemies[i];
+			if (~(enemy.isDead())) {
+				if (enemy.hasCollision()) {
+					do enemy.erase();
+				}
 			}
 			let i = i + 1;
 		}
