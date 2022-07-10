@@ -21,12 +21,16 @@ class Player {
 	}
 
 	method void moveLeft() {
+		do erase();
 		let xPos = xPos - 1;
+		do draw();
 		return;
 	}
 
 	method void moveRight() {
+		do erase();
 		let xPos = xPos + 1;
+		do draw();
 		return;
 	}
 }
