@@ -1,0 +1,42 @@
+class Projectile {
+	field int xPos;
+	field int yPos;
+	field int length;
+
+	constructor Projectile new(int startXPos, int startYPos) {
+		let xPos = startXPos;
+		let yPos = startYPos;
+		let length = 3;
+		do draw();
+		return this;
+	}
+
+	method void dispose() {
+		do Memory.deAlloc(this);
+		return;
+	}
+
+	method boolean canMove() {
+		if (yPos < 5) { return false; }
+		return true;
+	}
+
+	method void move() {
+		do erase();
+		let yPos = yPos - 2;
+		do draw();
+		return;
+	}
+
+	method void draw() {
+		do Screen.setColor(true);
+		do Screen.drawRectangle(xPos, yPos, xPos + 1, yPos + length);
+		return;
+	}
+
+	method void erase() {
+		do Screen.setColor(false);
+		do Screen.drawRectangle(xPos, yPos, xPos + 1, yPos + length);
+		return;
+	}
+}

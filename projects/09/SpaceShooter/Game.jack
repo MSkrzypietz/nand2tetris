@@ -1,13 +1,22 @@
 class Game {
 	field Player player;
+	field Array projectiles;
+	field int projectileCount;
+	field int maxProjectileCount;
+	field char lastPlayerInput;
 
 	constructor Game new() {
-		let player = Player.new(20, 20);
+		let player = Player.new(250, 220);
+		let maxProjectileCount = 50;
+		let projectiles = Array.new(maxProjectileCount);
+		let projectileCount = 0;
+		let lastPlayerInput = 0;
 		return this;
 	}
 
 	method void dispose() {
 		do player.dispose();
+		do projectiles.dispose();
 		do Memory.deAlloc(this);
 		return;
 	}
@@ -15,6 +24,7 @@ class Game {
 	method void run() {
 		while (true) {
 			do handlePlayerInput();
+			do moveProjectiles();
 			do Sys.wait(5);
 		}
 		return;
@@ -26,7 +36,40 @@ class Game {
 
 		if (inputKey = 130) { do player.moveLeft(); } 
 		if (inputKey = 132) { do player.moveRight(); } 
+		if ((inputKey = 32) & (~(lastPlayerInput = 32))) { do handleShooting(); } 
+
+		let lastPlayerInput = inputKey;
 		
+		return;
+	}
+
+	method void handleShooting() {
+		var Projectile projectile;
+
+		if (projectileCount = maxProjectileCount) { return; }
+
+		let projectile = Projectile.new((player.getXPos() + (player.getWidth() / 2)), player.getYPos() - player.getHeight() - 1);
+		let projectiles[projectileCount] = projectile;
+		let projectileCount = projectileCount + 1;
+
+		return;
+	}
+
+	method void moveProjectiles() {
+		var Projectile projectile;
+		var int i;
+		let i = 0;
+
+		while (i < projectileCount) {
+			let projectile = projectiles[i];
+			if (projectile.canMove()) {
+				do projectile.move();
+			} else {
+				do projectile.erase();
+			}
+			let i = i + 1;
+		}
+
 		return;
 	}
 }

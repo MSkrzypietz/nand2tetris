@@ -1,10 +1,14 @@
 class Player {
 	field int xPos;
 	field int yPos;
+	field int width;
+	field int height;
 
 	constructor Player new(int startXPos, int startYPos) {
 		let xPos = startXPos;
 		let yPos = startYPos;
+		let width = 10;
+		let height = 3;
 		do draw();
 		return this;
 	}
@@ -14,15 +18,23 @@ class Player {
 		return;
 	}
 
+	method int getXPos() { return xPos; }
+
+	method int getYPos() { return yPos; }
+
+	method int getWidth() { return width; }
+
+	method int getHeight() { return height; }
+
 	method void draw() {
 	        do Screen.setColor(true);
-		do Screen.drawRectangle(xPos, yPos, xPos + 10, yPos + 3);
+		do Screen.drawRectangle(xPos, yPos, xPos + width, yPos + height);
 		return;
 	}
 
 	method void erase() {
 	        do Screen.setColor(false);
-		do Screen.drawRectangle(xPos, yPos, xPos + 10, yPos + 3);
+		do Screen.drawRectangle(xPos, yPos, xPos + width, yPos + height);
 		return;
 	}
 
