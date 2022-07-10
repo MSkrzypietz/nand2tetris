@@ -5,6 +5,7 @@ class Player {
 	constructor Player new(int startXPos, int startYPos) {
 		let xPos = startXPos;
 		let yPos = startYPos;
+		do draw();
 		return this;
 	}
 
