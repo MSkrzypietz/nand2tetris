@@ -8,6 +8,11 @@ class Player {
 		return this;
 	}
 
+	method void dispose() {
+		do Memory.deAlloc(this);
+		return;
+	}
+
 	method void draw() {
 	        do Screen.setColor(true);
 		do Screen.drawRectangle(xPos, yPos, xPos + 10, yPos + 3);

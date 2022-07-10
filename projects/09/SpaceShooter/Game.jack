@@ -6,6 +6,12 @@ class Game {
 		return this;
 	}
 
+	method void dispose() {
+		do player.dispose();
+		do Memory.deAlloc(this);
+		return;
+	}
+
 	method void run() {
 		while (true) {
 			do handlePlayerInput();
