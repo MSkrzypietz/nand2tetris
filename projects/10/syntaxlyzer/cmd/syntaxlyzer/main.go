@@ -1,5 +1,15 @@
 package main
 
+import (
+	"os"
+	"syntaxlyzer/pkg/tokenizer"
+)
+
 func main() {
-	println("Hello")
+	filename := os.Args[1]
+	tokenizer := tokenizer.New(filename)
+	for tokenizer.HasMoreTokens() {
+		tokenizer.Advance()
+		println(tokenizer.GetToken())
+	}
 }
