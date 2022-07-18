@@ -3,7 +3,18 @@ package tokenizer
 import (
 	"bufio"
 	"os"
+	"strconv"
 	"strings"
+)
+
+type TokenType int
+
+const (
+	Keyword TokenType = iota
+	Symbol
+	Identifier
+	IntConst
+	StringConst
 )
 
 type Tokenizer struct {
@@ -38,7 +49,7 @@ func readTokens(filename string) []string {
 			closingIndex := strings.Index(string(fileData[i+1:]), "\"")
 			println(i, closingIndex)
 			println(string(fileData[i+1 : i+20]))
-			tokens = append(tokens, fileData[i+1:i+1+closingIndex])
+			tokens = append(tokens, fileData[i:i+2+closingIndex])
 			i += closingIndex + 1
 			token = ""
 		} else {
@@ -90,8 +101,64 @@ func (t *Tokenizer) Advance() {
 	t.currTokenIndex++
 }
 
-func (t *Tokenizer) GetToken() string {
+func (t *Tokenizer) TokenType() TokenType {
+	currToken := t.tokens[t.currTokenIndex]
+	if isSymbol(currToken) {
+		return Symbol
+	} else if isKeyword(currToken) {
+		return Keyword
+	} else if isIntConst(currToken) {
+		return IntConst
+	} else if isStringConst(currToken) {
+		return StringConst
+	}
+	return Identifier
+}
+
+func isIntConst(s string) bool {
+	_, err := strconv.Atoi(s)
+	return err != nil
+}
+
+func isStringConst(s string) bool {
+	if len(s) < 2 {
+		return false
+	}
+	return s[0] == "\"" && s[len(s)-1] == "\""
+}
+
+func isKeyword(s string) bool {
+	for _, symbol := range getKeywords() {
+		if s == symbol {
+			return true
+		}
+	}
+	return false
+}
+
+func (t *Tokenizer) getToken() string {
 	return t.tokens[t.currTokenIndex]
+}
+
+func (t *Tokenizer) KeyWord() string {
+	return t.getToken()
+}
+
+func (t *Tokenizer) Symbol() string {
+	return t.getToken()
+}
+
+func (t *Tokenizer) Identifier() string {
+	return t.getToken()
+}
+
+func (t *Tokenizer) IntVal() int {
+	val, _ := strconv.Atoi(t.getToken())
+	return val
+}
+
+func (t *Tokenizer) StringVal() string {
+	return t.getToken()[1:len(t.getToken()-1)]
 }
 
 func getKeywords() []string {
