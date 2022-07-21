@@ -47,8 +47,6 @@ func readTokens(filename string) []string {
 		} else if char == "\"" {
 			tokens = addNonEmptyToken(tokens, token)
 			closingIndex := strings.Index(string(fileData[i+1:]), "\"")
-			println(i, closingIndex)
-			println(string(fileData[i+1 : i+20]))
 			tokens = append(tokens, fileData[i:i+2+closingIndex])
 			i += closingIndex + 1
 			token = ""
@@ -117,14 +115,14 @@ func (t *Tokenizer) TokenType() TokenType {
 
 func isIntConst(s string) bool {
 	_, err := strconv.Atoi(s)
-	return err != nil
+	return err == nil
 }
 
 func isStringConst(s string) bool {
 	if len(s) < 2 {
 		return false
 	}
-	return s[0] == "\"" && s[len(s)-1] == "\""
+	return string(s[0]) == "\"" && string(s[len(s)-1]) == "\""
 }
 
 func isKeyword(s string) bool {
@@ -158,7 +156,7 @@ func (t *Tokenizer) IntVal() int {
 }
 
 func (t *Tokenizer) StringVal() string {
-	return t.getToken()[1:len(t.getToken()-1)]
+	return t.getToken()[1 : len(t.getToken())-1]
 }
 
 func getKeywords() []string {
