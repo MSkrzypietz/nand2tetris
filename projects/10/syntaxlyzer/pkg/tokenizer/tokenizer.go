@@ -25,7 +25,7 @@ type Tokenizer struct {
 func New(filename string) *Tokenizer {
 	return &Tokenizer{
 		tokens:         readTokens(filename),
-		currTokenIndex: -1,
+		currTokenIndex: 0,
 	}
 }
 
