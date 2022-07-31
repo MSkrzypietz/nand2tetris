@@ -1,14 +1,15 @@
 package main
 
 import (
+	"compiler/pkg/compengine"
+	"compiler/pkg/symtable"
+	"compiler/pkg/tokenizer"
 	"io/fs"
 	"log"
 	"os"
 	"path"
 	"path/filepath"
 	"strings"
-	"compiler/pkg/compengine"
-	"compiler/pkg/tokenizer"
 )
 
 func main() {
@@ -38,7 +39,9 @@ func main() {
 
 		println("compiling", filePath)
 		t := tokenizer.New(filePath)
-		c := compengine.New(t, outputFile)
+		classSymTable := symtable.New()
+		subroutineSymTable := symtable.New()
+		c := compengine.New(t, classSymTable, subroutineSymTable, outputFile)
 		c.CompileClass()
 
 		outputFile.Sync()

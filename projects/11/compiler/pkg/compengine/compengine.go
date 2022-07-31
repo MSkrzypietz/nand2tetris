@@ -1,23 +1,39 @@
 package compengine
 
 import (
+	"compiler/pkg/symtable"
+	"compiler/pkg/tokenizer"
 	"log"
 	"os"
+	"path"
 	"strconv"
 	"strings"
-	"compiler/pkg/tokenizer"
 )
 
 type CompilationEngine struct {
-	tokenizer  *tokenizer.Tokenizer
-	outputFile *os.File
+	tokenizer               *tokenizer.Tokenizer
+	classSymTable           *symtable.SymbolTable
+	subroutineSymTable      *symtable.SymbolTable
+	isIdentifierDeclaration bool
+	outputFile              *os.File
+	className               string
 }
 
-func New(tokenizer *tokenizer.Tokenizer, outputFile *os.File) *CompilationEngine {
+func New(tokenizer *tokenizer.Tokenizer, classSymTable *symtable.SymbolTable, subroutineSymTable *symtable.SymbolTable, outputFile *os.File) *CompilationEngine {
 	return &CompilationEngine{
-		tokenizer:  tokenizer,
-		outputFile: outputFile,
+		tokenizer:          tokenizer,
+		classSymTable:      classSymTable,
+		subroutineSymTable: subroutineSymTable,
+		outputFile:         outputFile,
+		className:          strings.Split(path.Base(outputFile.Name()), ".")[0],
 	}
+}
+
+func (c *CompilationEngine) getSymbolTable(identifier string) *symtable.SymbolTable {
+	if c.subroutineSymTable.KindOf(identifier) != symtable.None {
+		return c.subroutineSymTable
+	}
+	return c.classSymTable
 }
 
 func (c *CompilationEngine) getCurrentToken() string {
@@ -56,12 +72,48 @@ func (c *CompilationEngine) writeXMLTokenOutput(token string) {
 	case tokenizer.Symbol:
 		c.outputFile.WriteString(createXMLToken("symbol", token))
 	case tokenizer.Identifier:
-		c.outputFile.WriteString(createXMLToken("identifier", token))
+		c.outputFile.WriteString(createXMLToken("identifier", c.getIdentifierSymtableOutput(token)))
 	case tokenizer.IntConst:
 		c.outputFile.WriteString(createXMLToken("integerConstant", token))
 	case tokenizer.StringConst:
 		c.outputFile.WriteString(createXMLToken("stringConstant", token))
 	}
+}
+
+func (c *CompilationEngine) getIdentifierSymtableOutput(identifier string) string {
+	var category string
+	switch c.getSymbolTable(identifier).KindOf(identifier) {
+	case symtable.Static:
+		category = "static"
+	case symtable.Field:
+		category = "field"
+	case symtable.Arg:
+		category = "arg"
+	case symtable.Var:
+		category = "var"
+	case symtable.None:
+		if identifier == c.className {
+			category = "class"
+		} else {
+			category = "subroutine"
+		}
+	}
+
+	var usage string
+	if c.isIdentifierDeclaration {
+		usage = "declared"
+	} else {
+		usage = "used"
+	}
+
+	output := []string{
+		identifier,
+		category,
+		strconv.Itoa(c.getSymbolTable(identifier).IndexOf(identifier)),
+		usage,
+	}
+
+	return strings.Join(output, " - ")
 }
 
 func createXMLToken(tokenName, value string) string {
@@ -100,22 +152,31 @@ func (c *CompilationEngine) CompileClass() {
 
 func (c *CompilationEngine) CompileClassVarDec() {
 	c.outputFile.WriteString("<classVarDec>\n")
+	var kind symtable.SymbolTableEntryKind
 	if c.getCurrentToken() == "static" {
 		c.process("static")
+		kind = symtable.Static
 	} else {
 		c.process("field")
+		kind = symtable.Field
 	}
+	entryType := c.getCurrentToken()
 	c.processCurrentToken()
+	c.isIdentifierDeclaration = true
+	c.classSymTable.Define(c.getCurrentToken(), entryType, kind)
 	c.processCurrentToken()
-	if c.getCurrentToken() == "," {
+	for c.getCurrentToken() == "," {
 		c.process(",")
+		c.classSymTable.Define(c.getCurrentToken(), entryType, kind)
 		c.processCurrentToken()
 	}
 	c.process(";")
+	c.isIdentifierDeclaration = false
 	c.outputFile.WriteString("</classVarDec>\n")
 }
 
 func (c *CompilationEngine) CompileSubroutine() {
+	c.subroutineSymTable.Reset()
 	c.outputFile.WriteString("<subroutineDec>\n")
 	if c.getCurrentToken() == "constructor" {
 		c.process("constructor")
@@ -141,15 +202,21 @@ func (c *CompilationEngine) CompileParameterList() {
 	c.outputFile.WriteString("<parameterList>\n")
 	token := c.getCurrentToken()
 	isBuiltInType := token == "int" || token == "char" || token == "boolean"
+	c.isIdentifierDeclaration = true
 	if isBuiltInType || c.tokenizer.TokenType() == tokenizer.Identifier {
+		entryType := c.getCurrentToken()
 		c.processCurrentToken()
+		c.subroutineSymTable.Define(c.getCurrentToken(), entryType, symtable.Arg)
 		c.processCurrentToken()
 	}
 	for c.getCurrentToken() == "," {
 		c.process(",")
+		entryType := c.getCurrentToken()
 		c.processCurrentToken()
+		c.subroutineSymTable.Define(c.getCurrentToken(), entryType, symtable.Arg)
 		c.processCurrentToken()
 	}
+	c.isIdentifierDeclaration = false
 	c.outputFile.WriteString("</parameterList>\n")
 }
 
@@ -167,13 +234,18 @@ func (c *CompilationEngine) CompileSubroutineBody() {
 func (c *CompilationEngine) CompileVarDec() {
 	c.outputFile.WriteString("<varDec>\n")
 	c.process("var")
+	entryType := c.getCurrentToken()
 	c.processCurrentToken()
+	c.isIdentifierDeclaration = true
+	c.subroutineSymTable.Define(c.getCurrentToken(), entryType, symtable.Var)
 	c.processCurrentToken()
 	if c.getCurrentToken() == "," {
 		c.process(",")
+		c.subroutineSymTable.Define(c.getCurrentToken(), entryType, symtable.Var)
 		c.processCurrentToken()
 	}
 	c.process(";")
+	c.isIdentifierDeclaration = false
 	c.outputFile.WriteString("</varDec>\n")
 }
 
