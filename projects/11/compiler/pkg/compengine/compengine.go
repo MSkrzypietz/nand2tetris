@@ -3,6 +3,7 @@ package compengine
 import (
 	"compiler/pkg/symtable"
 	"compiler/pkg/tokenizer"
+	"compiler/pkg/vmwriter"
 	"log"
 	"os"
 	"path"
@@ -12,6 +13,7 @@ import (
 
 type CompilationEngine struct {
 	tokenizer               *tokenizer.Tokenizer
+	vmWriter                *vmwriter.VMWriter
 	classSymTable           *symtable.SymbolTable
 	subroutineSymTable      *symtable.SymbolTable
 	isIdentifierDeclaration bool
@@ -19,9 +21,10 @@ type CompilationEngine struct {
 	className               string
 }
 
-func New(tokenizer *tokenizer.Tokenizer, classSymTable *symtable.SymbolTable, subroutineSymTable *symtable.SymbolTable, outputFile *os.File) *CompilationEngine {
+func New(tokenizer *tokenizer.Tokenizer, vmWriter *vmwriter.VMWriter, classSymTable *symtable.SymbolTable, subroutineSymTable *symtable.SymbolTable, outputFile *os.File) *CompilationEngine {
 	return &CompilationEngine{
 		tokenizer:          tokenizer,
+		vmWriter:           vmWriter,
 		classSymTable:      classSymTable,
 		subroutineSymTable: subroutineSymTable,
 		outputFile:         outputFile,
@@ -67,14 +70,6 @@ func (c *CompilationEngine) processCurrentToken() {
 
 func (c *CompilationEngine) writeXMLTokenOutput(token string) {
 	switch c.tokenizer.TokenType() {
-	case tokenizer.Keyword:
-		c.outputFile.WriteString(createXMLToken("keyword", token))
-	case tokenizer.Symbol:
-		c.outputFile.WriteString(createXMLToken("symbol", token))
-	case tokenizer.Identifier:
-		c.outputFile.WriteString(createXMLToken("identifier", c.getIdentifierSymtableOutput(token)))
-	case tokenizer.IntConst:
-		c.outputFile.WriteString(createXMLToken("integerConstant", token))
 	case tokenizer.StringConst:
 		c.outputFile.WriteString(createXMLToken("stringConstant", token))
 	}
@@ -133,7 +128,6 @@ func createXMLToken(tokenName, value string) string {
 }
 
 func (c *CompilationEngine) CompileClass() {
-	c.outputFile.WriteString("<class>\n")
 	c.process("class")
 	c.processCurrentToken()
 	c.process("{")
@@ -144,7 +138,6 @@ func (c *CompilationEngine) CompileClass() {
 		c.CompileSubroutine()
 	}
 	c.process("}")
-	c.outputFile.WriteString("</class>")
 }
 
 func (c *CompilationEngine) CompileClassVarDec() {
@@ -174,7 +167,6 @@ func (c *CompilationEngine) CompileClassVarDec() {
 
 func (c *CompilationEngine) CompileSubroutine() {
 	c.subroutineSymTable.Reset()
-	c.outputFile.WriteString("<subroutineDec>\n")
 	if c.getCurrentToken() == "constructor" {
 		c.process("constructor")
 	} else if c.getCurrentToken() == "function" {
@@ -182,21 +174,26 @@ func (c *CompilationEngine) CompileSubroutine() {
 	} else {
 		c.process("method")
 	}
+	isVoidSubroutine := false
 	if c.getCurrentToken() == "void" {
+		isVoidSubroutine = true
 		c.process("void")
 	} else {
 		c.processCurrentToken()
 	}
+	c.vmWriter.WriteFunction(c.className+"."+c.getCurrentToken(), 0)
 	c.processCurrentToken()
 	c.process("(")
 	c.CompileParameterList()
 	c.process(")")
 	c.CompileSubroutineBody()
-	c.outputFile.WriteString("</subroutineDec>\n")
+	if isVoidSubroutine {
+		c.vmWriter.WritePush(vmwriter.Constant, 0)
+		c.vmWriter.WriteReturn()
+	}
 }
 
 func (c *CompilationEngine) CompileParameterList() {
-	c.outputFile.WriteString("<parameterList>\n")
 	token := c.getCurrentToken()
 	isBuiltInType := token == "int" || token == "char" || token == "boolean"
 	c.isIdentifierDeclaration = true
@@ -214,18 +211,15 @@ func (c *CompilationEngine) CompileParameterList() {
 		c.processCurrentToken()
 	}
 	c.isIdentifierDeclaration = false
-	c.outputFile.WriteString("</parameterList>\n")
 }
 
 func (c *CompilationEngine) CompileSubroutineBody() {
-	c.outputFile.WriteString("<subroutineBody>\n")
 	c.process("{")
 	for c.getCurrentToken() == "var" {
 		c.CompileVarDec()
 	}
 	c.CompileStatements()
 	c.process("}")
-	c.outputFile.WriteString("</subroutineBody>\n")
 }
 
 func (c *CompilationEngine) CompileVarDec() {
@@ -247,7 +241,6 @@ func (c *CompilationEngine) CompileVarDec() {
 }
 
 func (c *CompilationEngine) CompileStatements() {
-	c.outputFile.WriteString("<statements>\n")
 	stop := false
 	for !stop {
 		switch c.getCurrentToken() {
@@ -265,7 +258,6 @@ func (c *CompilationEngine) CompileStatements() {
 			stop = true
 		}
 	}
-	c.outputFile.WriteString("</statements>\n")
 }
 
 func (c *CompilationEngine) CompileLet() {
@@ -314,42 +306,48 @@ func (c *CompilationEngine) CompileWhile() {
 }
 
 func (c *CompilationEngine) compileDo() {
-	c.outputFile.WriteString("<doStatement>\n")
 	c.process("do")
+	functionName := c.getCurrentToken()
+	var nArgs int
 	c.processCurrentToken()
 	if c.getCurrentToken() == "(" {
 		c.process("(")
-		c.CompileExpressionList()
+		nArgs = c.CompileExpressionList()
 		c.process(")")
 	} else {
 		c.process(".")
+		functionName = functionName + "." + c.getCurrentToken()
 		c.processCurrentToken()
 		c.process("(")
-		c.CompileExpressionList()
+		nArgs = c.CompileExpressionList()
 		c.process(")")
 	}
 	c.process(";")
-	c.outputFile.WriteString("</doStatement>\n")
+	c.vmWriter.WriteCall(functionName, nArgs) // TODO: ref push && nArgs +1
+	c.vmWriter.WritePop(vmwriter.Temp, 0)
 }
 
 func (c *CompilationEngine) CompileReturn() {
-	c.outputFile.WriteString("<returnStatement>\n")
 	c.process("return")
 	if c.getCurrentToken() != ";" {
 		c.CompileExpression()
 	}
 	c.process(";")
-	c.outputFile.WriteString("</returnStatement>\n")
 }
 
 func (c *CompilationEngine) CompileExpression() {
-	c.outputFile.WriteString("<expression>\n")
 	c.CompileTerm()
 	for isOp(c.getCurrentToken()) {
+		operator := c.getCurrentToken()
 		c.processCurrentToken()
 		c.CompileTerm()
+		switch operator {
+		case "+":
+			c.vmWriter.WriteArithmetic(vmwriter.Add)
+		case "*":
+			c.vmWriter.WriteCall("Math.multiply", 2)
+		}
 	}
-	c.outputFile.WriteString("</expression>\n")
 }
 
 func isOp(token string) bool {
@@ -363,7 +361,6 @@ func isOp(token string) bool {
 }
 
 func (c *CompilationEngine) CompileTerm() {
-	c.outputFile.WriteString("<term>\n")
 	if c.getCurrentToken() == "(" {
 		c.process("(")
 		c.CompileExpression()
@@ -372,6 +369,10 @@ func (c *CompilationEngine) CompileTerm() {
 		c.processCurrentToken()
 		c.CompileTerm()
 	} else {
+		switch c.tokenizer.TokenType() {
+		case tokenizer.IntConst:
+			c.vmWriter.WritePush(vmwriter.Constant, c.tokenizer.IntVal())
+		}
 		c.processCurrentToken()
 		if c.getCurrentToken() == "[" {
 			c.process("[")
@@ -389,13 +390,10 @@ func (c *CompilationEngine) CompileTerm() {
 			c.process(")")
 		}
 	}
-	c.outputFile.WriteString("</term>\n")
 }
 
 func (c *CompilationEngine) CompileExpressionList() int {
-	c.outputFile.WriteString("<expressionList>\n")
 	if c.getCurrentToken() == ")" {
-		c.outputFile.WriteString("</expressionList>\n")
 		return 0
 	}
 	c.CompileExpression()
@@ -405,6 +403,5 @@ func (c *CompilationEngine) CompileExpressionList() int {
 		c.CompileExpression()
 		i++
 	}
-	c.outputFile.WriteString("</expressionList>\n")
 	return i
 }
