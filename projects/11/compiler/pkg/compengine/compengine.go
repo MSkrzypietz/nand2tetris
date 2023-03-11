@@ -82,7 +82,8 @@ func (c *CompilationEngine) writeXMLTokenOutput(token string) {
 
 func (c *CompilationEngine) getIdentifierSymtableOutput(identifier string) string {
 	var category string
-	switch c.getSymbolTable(identifier).KindOf(identifier) {
+	entryKind := c.getSymbolTable(identifier).KindOf(identifier)
+	switch entryKind {
 	case symtable.Static:
 		category = "static"
 	case symtable.Field:
@@ -99,20 +100,16 @@ func (c *CompilationEngine) getIdentifierSymtableOutput(identifier string) strin
 		}
 	}
 
-	var usage string
-	if c.isIdentifierDeclaration {
-		usage = "declared"
-	} else {
-		usage = "used"
-	}
+	output := []string{identifier, category}
+	if entryKind != symtable.None {
+		output = append(output, strconv.Itoa(c.getSymbolTable(identifier).IndexOf(identifier)))
 
-	output := []string{
-		identifier,
-		category,
-		strconv.Itoa(c.getSymbolTable(identifier).IndexOf(identifier)),
-		usage,
+		if c.isIdentifierDeclaration {
+			output = append(output, "declared")
+		} else {
+			output = append(output, "used")
+		}
 	}
-
 	return strings.Join(output, " - ")
 }
 
