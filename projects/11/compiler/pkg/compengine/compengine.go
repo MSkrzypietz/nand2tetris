@@ -19,6 +19,9 @@ type CompilationEngine struct {
 	isIdentifierDeclaration bool
 	outputFile              *os.File
 	className               string
+	functionName            string
+	ifLabelCounter          int
+	whileLabelCounter       int
 }
 
 func New(tokenizer *tokenizer.Tokenizer, vmWriter *vmwriter.VMWriter, classSymTable *symtable.SymbolTable, subroutineSymTable *symtable.SymbolTable, outputFile *os.File) *CompilationEngine {
@@ -29,7 +32,22 @@ func New(tokenizer *tokenizer.Tokenizer, vmWriter *vmwriter.VMWriter, classSymTa
 		subroutineSymTable: subroutineSymTable,
 		outputFile:         outputFile,
 		className:          strings.Split(path.Base(outputFile.Name()), ".")[0],
+		functionName:       "",
+		ifLabelCounter:     -1,
+		whileLabelCounter:  -1,
 	}
+}
+
+func (c *CompilationEngine) nextUniqueIfLabelTuple() (string, string, string) {
+	c.ifLabelCounter++
+	counter := strconv.Itoa(c.ifLabelCounter)
+	return "IF_TRUE" + counter, "IF_FALSE" + counter, "IF_END" + counter
+}
+
+func (c *CompilationEngine) nextUniqueWhileLabelTuple() (string, string) {
+	c.whileLabelCounter++
+	counter := strconv.Itoa(c.whileLabelCounter)
+	return "WHILE_EXP" + counter, "WHILE_END" + counter
 }
 
 func (c *CompilationEngine) getSymbolTable(identifier string) *symtable.SymbolTable {
@@ -181,7 +199,7 @@ func (c *CompilationEngine) CompileSubroutine() {
 	} else {
 		c.processCurrentToken()
 	}
-	c.vmWriter.WriteFunction(c.className+"."+c.getCurrentToken(), 0)
+	c.functionName = c.className + "." + c.getCurrentToken()
 	c.processCurrentToken()
 	c.process("(")
 	c.CompileParameterList()
@@ -218,12 +236,12 @@ func (c *CompilationEngine) CompileSubroutineBody() {
 	for c.getCurrentToken() == "var" {
 		c.CompileVarDec()
 	}
+	c.vmWriter.WriteFunction(c.functionName, c.subroutineSymTable.VarCount(symtable.Var))
 	c.CompileStatements()
 	c.process("}")
 }
 
 func (c *CompilationEngine) CompileVarDec() {
-	c.outputFile.WriteString("<varDec>\n")
 	c.process("var")
 	entryType := c.getCurrentToken()
 	c.processCurrentToken()
@@ -237,7 +255,6 @@ func (c *CompilationEngine) CompileVarDec() {
 	}
 	c.process(";")
 	c.isIdentifierDeclaration = false
-	c.outputFile.WriteString("</varDec>\n")
 }
 
 func (c *CompilationEngine) CompileStatements() {
@@ -261,8 +278,8 @@ func (c *CompilationEngine) CompileStatements() {
 }
 
 func (c *CompilationEngine) CompileLet() {
-	c.outputFile.WriteString("<letStatement>\n")
 	c.process("let")
+	varName := c.getCurrentToken()
 	c.processCurrentToken()
 	if c.getCurrentToken() == "[" {
 		c.process("[")
@@ -272,37 +289,68 @@ func (c *CompilationEngine) CompileLet() {
 	c.process("=")
 	c.CompileExpression()
 	c.process(";")
-	c.outputFile.WriteString("</letStatement>\n")
+	c.writePopForIdentifier(varName)
+}
+
+func (c *CompilationEngine) writePopForIdentifier(identifier string) {
+	symTable := c.getSymbolTable(identifier)
+	switch symTable.KindOf(identifier) {
+	case symtable.Arg:
+		c.vmWriter.WritePop(vmwriter.Argument, symTable.IndexOf(identifier))
+	case symtable.Var:
+		c.vmWriter.WritePop(vmwriter.Local, symTable.IndexOf(identifier))
+	}
+}
+
+func (c *CompilationEngine) writePushForIdentifier(identifier string) {
+	symTable := c.getSymbolTable(identifier)
+	switch symTable.KindOf(identifier) {
+	case symtable.Arg:
+		c.vmWriter.WritePush(vmwriter.Argument, symTable.IndexOf(identifier))
+	case symtable.Var:
+		c.vmWriter.WritePush(vmwriter.Local, symTable.IndexOf(identifier))
+	}
 }
 
 func (c *CompilationEngine) CompileIf() {
-	c.outputFile.WriteString("<ifStatement>\n")
+	lt, lf, le := c.nextUniqueIfLabelTuple()
 	c.process("if")
 	c.process("(")
 	c.CompileExpression()
+	c.vmWriter.WriteIf(lt)
+	c.vmWriter.WriteGoto(lf)
+	c.vmWriter.WriteLabel(lt)
 	c.process(")")
 	c.process("{")
 	c.CompileStatements()
 	c.process("}")
+	c.vmWriter.WriteGoto(le)
+	c.vmWriter.WriteLabel(lf)
 	if c.getCurrentToken() == "else" {
 		c.process("else")
 		c.process("{")
 		c.CompileStatements()
 		c.process("}")
 	}
-	c.outputFile.WriteString("</ifStatement>\n")
+	c.vmWriter.WriteLabel(le)
+	c.ifLabelCounter--
 }
 
 func (c *CompilationEngine) CompileWhile() {
-	c.outputFile.WriteString("<whileStatement>\n")
 	c.process("while")
 	c.process("(")
+	l1, l2 := c.nextUniqueWhileLabelTuple()
+	c.vmWriter.WriteLabel(l1)
 	c.CompileExpression()
+	c.vmWriter.WriteArithmetic(vmwriter.Not)
+	c.vmWriter.WriteIf(l2)
 	c.process(")")
 	c.process("{")
 	c.CompileStatements()
 	c.process("}")
-	c.outputFile.WriteString("</whileStatement>\n")
+	c.vmWriter.WriteGoto(l1)
+	c.vmWriter.WriteLabel(l2)
+	c.whileLabelCounter--
 }
 
 func (c *CompilationEngine) compileDo() {
@@ -331,6 +379,7 @@ func (c *CompilationEngine) CompileReturn() {
 	c.process("return")
 	if c.getCurrentToken() != ";" {
 		c.CompileExpression()
+		c.vmWriter.WriteReturn()
 	}
 	c.process(";")
 }
@@ -344,8 +393,18 @@ func (c *CompilationEngine) CompileExpression() {
 		switch operator {
 		case "+":
 			c.vmWriter.WriteArithmetic(vmwriter.Add)
+		case "-":
+			c.vmWriter.WriteArithmetic(vmwriter.Sub)
 		case "*":
 			c.vmWriter.WriteCall("Math.multiply", 2)
+		case "<":
+			c.vmWriter.WriteArithmetic(vmwriter.Lt)
+		case ">":
+			c.vmWriter.WriteArithmetic(vmwriter.Gt)
+		case "=":
+			c.vmWriter.WriteArithmetic(vmwriter.Eq)
+		case "&":
+			c.vmWriter.WriteArithmetic(vmwriter.And)
 		}
 	}
 }
@@ -365,14 +424,29 @@ func (c *CompilationEngine) CompileTerm() {
 		c.process("(")
 		c.CompileExpression()
 		c.process(")")
-	} else if c.getCurrentToken() == "-" || c.getCurrentToken() == "~" {
+	} else if c.getCurrentToken() == "-" {
 		c.processCurrentToken()
 		c.CompileTerm()
+		c.vmWriter.WriteArithmetic(vmwriter.Neg)
+	} else if c.getCurrentToken() == "~" {
+		c.processCurrentToken()
+		c.CompileTerm()
+		c.vmWriter.WriteArithmetic(vmwriter.Not)
 	} else {
 		switch c.tokenizer.TokenType() {
 		case tokenizer.IntConst:
 			c.vmWriter.WritePush(vmwriter.Constant, c.tokenizer.IntVal())
+		case tokenizer.Identifier:
+			c.writePushForIdentifier(c.getCurrentToken())
 		}
+		if c.getCurrentToken() == "true" {
+			c.vmWriter.WritePush(vmwriter.Constant, 0)
+			c.vmWriter.WriteArithmetic(vmwriter.Not)
+		} else if c.getCurrentToken() == "null" || c.getCurrentToken() == "false" {
+			c.vmWriter.WritePush(vmwriter.Constant, 0)
+		}
+
+		className := c.getCurrentToken()
 		c.processCurrentToken()
 		if c.getCurrentToken() == "[" {
 			c.process("[")
@@ -384,9 +458,11 @@ func (c *CompilationEngine) CompileTerm() {
 			c.process(")")
 		} else if c.getCurrentToken() == "." {
 			c.process(".")
+			classFunctionName := className + "." + c.getCurrentToken()
 			c.processCurrentToken()
 			c.process("(")
-			c.CompileExpressionList()
+			nArgs := c.CompileExpressionList()
+			c.vmWriter.WriteCall(classFunctionName, nArgs)
 			c.process(")")
 		}
 	}

@@ -43,16 +43,33 @@ func New(outputFile *os.File) *VMWriter {
 }
 
 func (w *VMWriter) WritePush(segment MemorySegment, index int) {
-	switch segment {
-	case Constant:
-		w.outputFile.WriteString("push constant " + strconv.Itoa(index) + "\n")
-	}
+	w.outputFile.WriteString("push " + getSegmentAlias(segment) + " " + strconv.Itoa(index) + "\n")
 }
 
 func (w *VMWriter) WritePop(segment MemorySegment, index int) {
+	w.outputFile.WriteString("pop " + getSegmentAlias(segment) + " " + strconv.Itoa(index) + "\n")
+}
+
+func getSegmentAlias(segment MemorySegment) string {
 	switch segment {
+	case Constant:
+		return "constant"
+	case Argument:
+		return "argument"
+	case Local:
+		return "local"
+	case Static:
+		return "static"
+	case This:
+		return "this"
+	case That:
+		return "that"
+	case Pointer:
+		return "pointer"
 	case Temp:
-		w.outputFile.WriteString("pop temp " + strconv.Itoa(index) + "\n")
+		return "temp"
+	default:
+		panic("Undefined alias for segment")
 	}
 }
 
@@ -61,15 +78,37 @@ func (w *VMWriter) WriteArithmetic(command ArithmeticCommand) {
 	switch command {
 	case Add:
 		instruction = "add"
+	case Sub:
+		instruction = "sub"
+	case Neg:
+		instruction = "neg"
+	case Not:
+		instruction = "not"
+	case Lt:
+		instruction = "lt"
+	case Gt:
+		instruction = "gt"
+	case Eq:
+		instruction = "eq"
+	case And:
+		instruction = "and"
+	default:
+		panic("Undefined alias for arithemtic command")
 	}
 	w.outputFile.WriteString(instruction + "\n")
 }
 
-func (w *VMWriter) WriteLabel(label string) {}
+func (w *VMWriter) WriteLabel(label string) {
+	w.outputFile.WriteString("label " + label + "\n")
+}
 
-func (w *VMWriter) WriteGoto(label string) {}
+func (w *VMWriter) WriteGoto(label string) {
+	w.outputFile.WriteString("goto " + label + "\n")
+}
 
-func (w *VMWriter) WriteIf(label string) {}
+func (w *VMWriter) WriteIf(label string) {
+	w.outputFile.WriteString("if-goto " + label + "\n")
+}
 
 func (w *VMWriter) WriteCall(name string, nArgs int) {
 	w.outputFile.WriteString("call " + name + " " + strconv.Itoa(nArgs) + "\n")
