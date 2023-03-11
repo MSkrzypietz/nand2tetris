@@ -28,6 +28,7 @@ func main() {
 		filePaths = append(filePaths, inputPath)
 	}
 
+	os.RemoveAll("out")
 	os.Mkdir("out", os.ModePerm)
 	for _, filePath := range filePaths {
 		filename := path.Base(filePath)
