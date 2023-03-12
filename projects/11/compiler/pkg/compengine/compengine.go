@@ -433,6 +433,8 @@ func (c *CompilationEngine) CompileExpression() {
 			c.vmWriter.WriteArithmetic(vmwriter.Sub)
 		case "*":
 			c.vmWriter.WriteCall("Math.multiply", 2)
+		case "/":
+			c.vmWriter.WriteCall("Math.divide", 2)
 		case "<":
 			c.vmWriter.WriteArithmetic(vmwriter.Lt)
 		case ">":
