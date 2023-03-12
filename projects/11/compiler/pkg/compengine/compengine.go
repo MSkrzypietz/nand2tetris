@@ -180,6 +180,8 @@ func (c *CompilationEngine) CompileSubroutine() {
 	c.subroutineSymTable.Reset()
 	c.ifLabelCounter = -1
 	c.whileLabelCounter = -1
+	c.isConstructorCompilation = false
+	c.isMethodCompilation = false
 	if c.getCurrentToken() == "constructor" {
 		c.isConstructorCompilation = true
 		c.process("constructor")
@@ -311,13 +313,23 @@ func (c *CompilationEngine) CompileLet() {
 
 func (c *CompilationEngine) writePopForIdentifier(identifier string) {
 	if segment, found := c.getMemorySegment(identifier); found {
+		symTable := c.getSymbolTable(identifier)
+		index := symTable.IndexOf(identifier)
+		if symTable.KindOf(identifier) == symtable.Arg && c.isMethodCompilation {
+			index++
+		}
 		c.vmWriter.WritePop(segment, c.getSymbolTable(identifier).IndexOf(identifier))
 	}
 }
 
 func (c *CompilationEngine) writePushForIdentifier(identifier string) {
 	if segment, found := c.getMemorySegment(identifier); found {
-		c.vmWriter.WritePush(segment, c.getSymbolTable(identifier).IndexOf(identifier))
+		symTable := c.getSymbolTable(identifier)
+		index := symTable.IndexOf(identifier)
+		if symTable.KindOf(identifier) == symtable.Arg && c.isMethodCompilation {
+			index++
+		}
+		c.vmWriter.WritePush(segment, index)
 	}
 }
 
@@ -326,6 +338,8 @@ func (c *CompilationEngine) getMemorySegment(identifier string) (segment vmwrite
 	switch symTable.KindOf(identifier) {
 	case symtable.Field:
 		return vmwriter.This, true
+	case symtable.Static:
+		return vmwriter.Static, true
 	case symtable.Arg:
 		return vmwriter.Argument, true
 	case symtable.Var:
@@ -443,6 +457,8 @@ func (c *CompilationEngine) CompileExpression() {
 			c.vmWriter.WriteArithmetic(vmwriter.Eq)
 		case "&":
 			c.vmWriter.WriteArithmetic(vmwriter.And)
+		case "|":
+			c.vmWriter.WriteArithmetic(vmwriter.Or)
 		}
 	}
 }
@@ -508,10 +524,19 @@ func (c *CompilationEngine) CompileTerm() {
 			c.process(")")
 		} else if c.getCurrentToken() == "." {
 			c.process(".")
-			classFunctionName := identifier + "." + c.getCurrentToken()
+			var classFunctionName string
+			nArgs := 0
+			symTable := c.getSymbolTable(identifier)
+			if symTable.KindOf(identifier) == symtable.Field {
+				c.writePushForIdentifier(identifier)
+				classFunctionName = symTable.TypeOf(identifier) + "." + c.getCurrentToken()
+				nArgs++
+			} else {
+				classFunctionName = identifier + "." + c.getCurrentToken()
+			}
 			c.processCurrentToken()
 			c.process("(")
-			nArgs := c.CompileExpressionList()
+			nArgs += c.CompileExpressionList()
 			c.vmWriter.WriteCall(classFunctionName, nArgs)
 			c.process(")")
 		} else if tokenType == tokenizer.Identifier {

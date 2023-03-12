@@ -92,6 +92,8 @@ func (w *VMWriter) WriteArithmetic(command ArithmeticCommand) {
 		instruction = "eq"
 	case And:
 		instruction = "and"
+	case Or:
+		instruction = "or"
 	default:
 		panic("Undefined alias for arithemtic command")
 	}
