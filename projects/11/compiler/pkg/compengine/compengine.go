@@ -78,9 +78,7 @@ func (c *CompilationEngine) getCurrentToken() string {
 }
 
 func (c *CompilationEngine) process(str string) {
-	if str == c.getCurrentToken() {
-		c.writeXMLTokenOutput(str)
-	} else {
+	if str != c.getCurrentToken() {
 		log.Println("syntax error:", str)
 	}
 	c.tokenizer.Advance()
@@ -88,13 +86,6 @@ func (c *CompilationEngine) process(str string) {
 
 func (c *CompilationEngine) processCurrentToken() {
 	c.process(c.getCurrentToken())
-}
-
-func (c *CompilationEngine) writeXMLTokenOutput(token string) {
-	switch c.tokenizer.TokenType() {
-	case tokenizer.StringConst:
-		c.outputFile.WriteString(createXMLToken("stringConstant", token))
-	}
 }
 
 func (c *CompilationEngine) getIdentifierSymtableOutput(identifier string) string {
@@ -263,7 +254,7 @@ func (c *CompilationEngine) CompileVarDec() {
 	c.isIdentifierDeclaration = true
 	c.subroutineSymTable.Define(c.getCurrentToken(), entryType, symtable.Var)
 	c.processCurrentToken()
-	if c.getCurrentToken() == "," {
+	for c.getCurrentToken() == "," {
 		c.process(",")
 		c.subroutineSymTable.Define(c.getCurrentToken(), entryType, symtable.Var)
 		c.processCurrentToken()
@@ -296,15 +287,26 @@ func (c *CompilationEngine) CompileLet() {
 	c.process("let")
 	varName := c.getCurrentToken()
 	c.processCurrentToken()
+	isArrayAssignment := false
 	if c.getCurrentToken() == "[" {
+		isArrayAssignment = true
 		c.process("[")
 		c.CompileExpression()
+		c.writePushForIdentifier(varName)
+		c.vmWriter.WriteArithmetic(vmwriter.Add)
 		c.process("]")
 	}
 	c.process("=")
 	c.CompileExpression()
+	if isArrayAssignment {
+		c.vmWriter.WritePop(vmwriter.Temp, 0)
+		c.vmWriter.WritePop(vmwriter.Pointer, 1)
+		c.vmWriter.WritePush(vmwriter.Temp, 0)
+		c.vmWriter.WritePop(vmwriter.That, 0)
+	} else {
+		c.writePopForIdentifier(varName)
+	}
 	c.process(";")
-	c.writePopForIdentifier(varName)
 }
 
 func (c *CompilationEngine) writePopForIdentifier(identifier string) {
@@ -467,11 +469,17 @@ func (c *CompilationEngine) CompileTerm() {
 		c.CompileTerm()
 		c.vmWriter.WriteArithmetic(vmwriter.Not)
 	} else {
-		switch c.tokenizer.TokenType() {
+		tokenType := c.tokenizer.TokenType()
+		switch tokenType {
 		case tokenizer.IntConst:
 			c.vmWriter.WritePush(vmwriter.Constant, c.tokenizer.IntVal())
-		case tokenizer.Identifier:
-			c.writePushForIdentifier(c.getCurrentToken())
+		case tokenizer.StringConst:
+			c.vmWriter.WritePush(vmwriter.Constant, len(c.tokenizer.StringVal()))
+			c.vmWriter.WriteCall("String.new", 1)
+			for _, char := range c.tokenizer.StringVal() {
+				c.vmWriter.WritePush(vmwriter.Constant, int(char))
+				c.vmWriter.WriteCall("String.appendChar", 2)
+			}
 		}
 		if c.getCurrentToken() == "true" {
 			c.vmWriter.WritePush(vmwriter.Constant, 0)
@@ -482,11 +490,15 @@ func (c *CompilationEngine) CompileTerm() {
 			c.vmWriter.WritePush(vmwriter.Pointer, 0)
 		}
 
-		className := c.getCurrentToken()
+		identifier := c.getCurrentToken()
 		c.processCurrentToken()
 		if c.getCurrentToken() == "[" {
 			c.process("[")
 			c.CompileExpression()
+			c.writePushForIdentifier(identifier)
+			c.vmWriter.WriteArithmetic(vmwriter.Add)
+			c.vmWriter.WritePop(vmwriter.Pointer, 1)
+			c.vmWriter.WritePush(vmwriter.That, 0)
 			c.process("]")
 		} else if c.getCurrentToken() == "(" {
 			c.process("(")
@@ -494,12 +506,14 @@ func (c *CompilationEngine) CompileTerm() {
 			c.process(")")
 		} else if c.getCurrentToken() == "." {
 			c.process(".")
-			classFunctionName := className + "." + c.getCurrentToken()
+			classFunctionName := identifier + "." + c.getCurrentToken()
 			c.processCurrentToken()
 			c.process("(")
 			nArgs := c.CompileExpressionList()
 			c.vmWriter.WriteCall(classFunctionName, nArgs)
 			c.process(")")
+		} else if tokenType == tokenizer.Identifier {
+			c.writePushForIdentifier(identifier)
 		}
 	}
 }
