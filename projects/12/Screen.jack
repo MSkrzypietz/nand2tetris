@@ -10,34 +10,156 @@
  * the screen is indexed (0,0).
  */
 class Screen {
+    static bool isBlackColor;
+    static Array twoToThe;
 
     /** Initializes the Screen. */
     function void init() {
+        let isBlackColor = true;
+
+        let twoToThe = Array.new(16);
+        let twoToThe[0] = 1;
+        let twoToThe[1] = 2;
+        let twoToThe[2] = 4;
+        let twoToThe[3] = 8;
+        let twoToThe[4] = 16;
+        let twoToThe[5] = 32;
+        let twoToThe[6] = 64;
+        let twoToThe[7] = 128;
+        let twoToThe[8] = 256;
+        let twoToThe[9] = 512;
+        let twoToThe[10] = 1024;
+        let twoToThe[11] = 2048;
+        let twoToThe[12] = 4096;
+        let twoToThe[13] = 8192;
+        let twoToThe[14] = 16384;
+        let twoToThe[15] = 16384 + 16384;
+
+        return;
     }
 
     /** Erases the entire screen. */
     function void clearScreen() {
+        do Screen.setColor(false);
+        do Screen.drawRectangle(0, 0, 511, 255);
+        return;
     }
 
     /** Sets the current color, to be used for all subsequent drawXXX commands.
      *  Black is represented by true, white by false. */
     function void setColor(boolean b) {
+        let isBlackColor = b;
+        return;
     }
 
     /** Draws the (x,y) pixel, using the current color. */
     function void drawPixel(int x, int y) {
+        var int addr, bit;
+
+        let addr = 16384 + (y * 32) + (x / 16);
+        let bit = x - (16 * (x / 16));
+
+        if (isBlackColor) {
+            do Memory.poke(addr, Memory.peek(addr) | twoToThe[bit]);
+        } else {
+            do Memory.poke(addr, Memory.peek(addr) & (~twoToThe[bit]));
+        }
+
+        return;
     }
 
     /** Draws a line from pixel (x1,y1) to pixel (x2,y2), using the current color. */
     function void drawLine(int x1, int y1, int x2, int y2) {
+        var int a, b, diff, x, y, dx, dy, nx, ny;
+
+        let a = 0;
+        let b = 0;
+        let x = x1;
+        let y = y1;
+        let diff = 0;
+        let dx = Math.abs(x2 - x1);
+        let dy = Math.abs(y2 - y1);
+
+        if (dy = 0) {
+            while (~(a > dx)) {
+                if ((x2 - x1) > 0) {
+                    let nx = x + a;
+                } else {
+                    let nx = x - a;
+                }
+
+                do Screen.drawPixel(nx, y);
+                let a = a + 1;
+            }
+            return;
+        }
+
+        if (dx = 0) {
+            while (~(b > dy)) {
+                if ((y2 - y1) > 0) {
+                    let ny = y + b;
+                } else {
+                    let ny = y - b;
+                }
+
+                do Screen.drawPixel(x, ny);
+                let b = b + 1;
+            }
+            return;
+        }
+
+        while ((~(a > dx)) & (~(b > dy))) {
+            if ((x2 - x1) > 0) {
+                let nx = x + a;
+            } else {
+                let nx = x - a;
+            }
+
+            if ((y2 - y1) > 0) {
+                let ny = y + b;
+            } else {
+                let ny = y - b;
+            }
+
+            do Screen.drawPixel(nx, ny);
+
+            if (diff < 0) {
+                let a = a + 1;
+                let diff = diff + dy;
+            } else {
+                let b = b + 1;
+                let diff = diff - dx;
+            }
+        }
+
+        return;
     }
 
     /** Draws a filled rectangle whose top left corner is (x1, y1)
      * and bottom right corner is (x2,y2), using the current color. */
     function void drawRectangle(int x1, int y1, int x2, int y2) {
+        var int y;
+
+        let y = y1;
+        while (~(y > y2)) {
+            do Screen.drawLine(x1, y, x2, y);
+            let y = y + 1;
+        }
+
+        return;
     }
 
     /** Draws a filled circle of radius r<=181 around (x,y), using the current color. */
     function void drawCircle(int x, int y, int r) {
+        var int dy, dr;
+
+        let dy = -r;
+        while (~(dy > r)) {
+            let dr = Math.sqrt((r * r) - (dy * dy));
+            do Screen.drawLine(x - dr, y + dy, x + dr, y + dy);
+            let dy = dy + 1;
+        }
+
+        return;
     }
 }
