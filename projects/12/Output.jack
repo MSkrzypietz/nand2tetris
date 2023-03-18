@@ -1,5 +1,4 @@
-// This file is part of www.nand2tetris.org
-// and the book "The Elements of Computing Systems"
+// This file is part of www.nand2tetris.org and the book "The Elements of Computing Systems"
 // by Nisan and Schocken, MIT Press.
 // File name: projects/12/Output.jack
 
@@ -15,12 +14,30 @@
  * as a small filled square, indicates where the next character will be displayed.
  */
 class Output {
+    static int row, col;
+    static Array twoToThe;
 
     // Character map for displaying characters
     static Array charMaps; 
 
     /** Initializes the screen, and locates the cursor at the screen's top-left. */
     function void init() {
+        let twoToThe = Array.new(8);
+        let twoToThe[0] = 1;
+        let twoToThe[1] = 2;
+        let twoToThe[2] = 4;
+        let twoToThe[3] = 8;
+        let twoToThe[4] = 16;
+        let twoToThe[5] = 32;
+        let twoToThe[6] = 64;
+        let twoToThe[7] = 128;
+
+        let row = 0;
+        let col = 0;
+
+        do Output.initMap();
+
+        return;
     }
 
     // Initializes the character map array
@@ -71,7 +88,7 @@ class Output {
         do Output.create(64,30,51,51,59,59,59,27,3,30,0,0);  // @
         do Output.create(63,30,51,51,24,12,12,0,12,12,0,0);  // ?
 
-        do Output.create(65,0,0,0,0,0,0,0,0,0,0,0);          // A ** TO BE FILLED **
+        do Output.create(65,63,63,51,51,63,63,51,51,51,0,0); // A
         do Output.create(66,31,51,51,51,31,51,51,51,31,0,0); // B
         do Output.create(67,28,54,35,3,3,3,35,54,28,0,0);    // C
         do Output.create(68,15,27,51,51,51,51,51,27,15,0,0); // D
@@ -176,28 +193,108 @@ class Output {
     /** Moves the cursor to the j-th column of the i-th row,
      *  and erases the character displayed there. */
     function void moveCursor(int i, int j) {
+        let row = i;
+        let col = j;
+        do Output.printCharWithoutMove(32);
+        return;
     }
 
     /** Displays the given character at the cursor location,
      *  and advances the cursor one column forward. */
     function void printChar(char c) {
+        do Output.printCharWithoutMove(c);
+
+        let col = col + 1;
+        if (col > 63) {
+            let col = 0;
+            let row = row + 1;
+
+            if (row > 22) {
+                let row = 0;
+            }
+        }
+        return;
+    }
+
+    function void printCharWithoutMove(char c) {
+        var int i, j, px, py;
+        var Array map;
+
+        let map = Output.getMap(c);
+
+        let i = 0;
+        while (i < 11) {
+            let j = 0;
+            while (j < 8) {
+                let px = (8 * col) + j;
+                let py = (11 * row) + i;
+
+                do Screen.setColor(Output.bit(map[i], j));
+                do Screen.drawPixel(px, py);
+
+                let j = j + 1;
+            }
+            let i = i + 1;
+        }
+
+        return;
+    }
+
+    function bool bit(int x, int i) {
+        return ~(x & twoToThe[i] = 0);
     }
 
     /** displays the given string starting at the cursor location,
      *  and advances the cursor appropriately. */
     function void printString(String s) {
+        var int i;
+        let i = 0;
+        while (i < s.length()) {
+            do Output.printChar(s.charAt(i));
+            let i = i + 1;
+        }
+        return;
     }
 
     /** Displays the given integer starting at the cursor location,
      *  and advances the cursor appropriately. */
     function void printInt(int i) {
+        var String str;
+
+        let str = String.new(6);
+        do str.setInt(i);
+        do Output.printString(str);
+
+        do str.dispose();
+        return;
     }
 
     /** Advances the cursor to the beginning of the next line. */
     function void println() {
+        if (row < 23) {
+            let row = row + 1;
+        } else {
+            let row = 0;
+        }
+
+        let col = 0;
+        return;
     }
 
     /** Moves the cursor one column back. */
     function void backSpace() {
+        if ((row = 0) & (col = 0)) {
+            let row = 22;
+            let col = 63;
+            return;
+        }
+
+        if (col = 0) {
+            let col = 63;
+            let row = row - 1;
+        } else {
+            let col = col - 1;
+        }
+        return;
     }
 }
