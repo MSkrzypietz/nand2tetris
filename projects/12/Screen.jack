@@ -40,8 +40,18 @@ class Screen {
 
     /** Erases the entire screen. */
     function void clearScreen() {
-        do Screen.setColor(false);
-        do Screen.drawRectangle(0, 0, 511, 255);
+        var int row, col;
+
+        let row = 0;
+        while (row < 256) {
+            let col = 0;
+            while (col < 32) {
+                do Memory.poke(16384 + (row * 32) + col, 0);
+                let col = col + 1;
+            }
+            let row = row + 1;
+        }
+
         return;
     }
 
@@ -81,16 +91,7 @@ class Screen {
         let dy = Math.abs(y2 - y1);
 
         if (dy = 0) {
-            while (~(a > dx)) {
-                if ((x2 - x1) > 0) {
-                    let nx = x + a;
-                } else {
-                    let nx = x - a;
-                }
-
-                do Screen.drawPixel(nx, y);
-                let a = a + 1;
-            }
+            do Screen.drawHorizontalLine(x1, x2, y);
             return;
         }
 
@@ -135,6 +136,71 @@ class Screen {
         return;
     }
 
+    function void drawHorizontalLine(int x1, int x2, int y) {
+        var int xs, xe, dx, cs, ce, be, val, i;
+
+        let dx = Math.abs(x2 - x1);
+        let xs = Math.min(x1, x2);
+        let xe = Math.max(x1, x2);
+
+        let cs = 16384 + (y * 32) + (xs / 16);
+        let ce = 16384 + (y * 32) + (xe / 16);
+
+        if (cs = ce) {
+            let i = x1 - (16 * (x1 / 16));
+            while (dx > -1) {
+                if (isBlackColor) {
+                    do Memory.poke(cs, Memory.peek(cs) | twoToThe[i + dx]);
+                } else {
+                    do Memory.poke(cs, Memory.peek(cs) & (~twoToThe[i + dx]));
+                }
+
+                let dx = dx - 1;
+            }
+            return;
+        }
+
+        let i = xs - (16 * (xs / 16));
+        let val = Memory.peek(cs);
+        while (i < 16) {
+            if (isBlackColor) {
+                let val = val | twoToThe[i];
+            } else {
+                let val = val & (~twoToThe[i]); 
+            }
+
+            let i = i + 1;
+        }
+        do Memory.poke(cs, val);
+
+        let be = xe - (16 * (xe / 16));
+        let val = Memory.peek(ce);
+        let i = 0;
+        while (~(i > be)) {
+            if (isBlackColor) {
+                let val = val | twoToThe[i];
+            } else {
+                let val = val & (~twoToThe[i]); 
+            }
+
+            let i = i + 1;
+        }
+        do Memory.poke(ce, val);
+    
+        let cs = cs + 1;
+        while (~(cs = ce)) {
+            if (isBlackColor) {
+                do Memory.poke(cs, -1);
+            } else {
+                do Memory.poke(cs, 0);
+            }
+
+            let cs = cs + 1;
+        }
+
+        return;
+    }
+
     /** Draws a filled rectangle whose top left corner is (x1, y1)
      * and bottom right corner is (x2,y2), using the current color. */
     function void drawRectangle(int x1, int y1, int x2, int y2) {
@@ -142,7 +208,7 @@ class Screen {
 
         let y = y1;
         while (~(y > y2)) {
-            do Screen.drawLine(x1, y, x2, y);
+            do Screen.drawHorizontalLine(x1, x2, y);
             let y = y + 1;
         }
 
@@ -156,7 +222,7 @@ class Screen {
         let dy = -r;
         while (~(dy > r)) {
             let dr = Math.sqrt((r * r) - (dy * dy));
-            do Screen.drawLine(x - dr, y + dy, x + dr, y + dy);
+            do Screen.drawHorizontalLine(x - dr, x + dr, y + dy);
             let dy = dy + 1;
         }
 
